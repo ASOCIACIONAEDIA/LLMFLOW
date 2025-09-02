@@ -1,0 +1,17 @@
+from sqlalchemy.orm import Mapped, mapped_column, relationship # Added relationship
+from sqlalchemy import BigInteger, ForeignKey, Text, DateTime
+from app.db.base import Base
+from datetime import datetime, timezone # Ensure datetime is imported for type hints
+
+class TwoFactorCode(Base):
+    __tablename__ = "two_factor_codes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    code_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime]
+    used_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False) # Set default
+    
+    # Relationship
+    user: Mapped["User"] = relationship(back_populates="two_factor_codes") # Add relationship

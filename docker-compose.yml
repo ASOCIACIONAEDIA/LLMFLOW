@@ -1,0 +1,164 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: insights_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-insights}
+      POSTGRES_USER: ${POSTGRES_USER:-insights_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-insights_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-insights_user} -d ${POSTGRES_DB:-insights}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - insights_network
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: insights_redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - insights_network
+
+  # Main FastAPI Application
+  api:
+    build:
+      context: .
+      target: ${BUILD_TARGET:-development}
+    container_name: insights_api
+    environment:
+      - ENV=${ENV:-dev}
+      - DEBUG=${DEBUG:-true}
+      - DB_URL=postgresql+asyncpg://${POSTGRES_USER:-insights_user}:${POSTGRES_PASSWORD:-insights_pass}@postgres:5432/${POSTGRES_DB:-insights}
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ARQ_REDIS_URL=redis://redis:6379/
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-super-secret-jwt-key-change-this-in-production}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    volumes:
+      - ./app:/app/app
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+      - ./logs:/app/logs
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./README.md:/app/README.md
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - insights_network
+    restart: unless-stopped
+
+  # ARQ Worker for Background Jobs
+  worker:
+    build:
+      context: .
+      target: ${BUILD_TARGET:-development}
+    container_name: insights_worker
+    command: /app/.venv/bin/arq app.workers.scheduler.WorkerSettings
+    environment:
+      - ENV=${ENV:-dev}
+      - DEBUG=${DEBUG:-true}
+      - DB_URL=postgresql+asyncpg://${POSTGRES_USER:-insights_user}:${POSTGRES_PASSWORD:-insights_pass}@postgres:5432/${POSTGRES_DB:-insights}
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ARQ_REDIS_URL=redis://redis:6379/
+    volumes:
+      - ./app:/app/app
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+      - ./logs:/app/logs
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./README.md:/app/README.md
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - insights_network
+    restart: unless-stopped
+
+  # Redis Commander - Redis GUI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: insights_redis_commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    depends_on:
+      - redis
+    networks:
+      - insights_network
+
+  # pgAdmin - PostgreSQL GUI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: insights_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@insights.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-8080}:80"
+    depends_on:
+      - postgres
+    networks:
+      - insights_network
+
+  # ARQ Monitor (Simple monitoring for ARQ tasks)
+  arq-monitor:
+    build:
+      context: .
+      target: development
+    container_name: insights_arq_monitor
+    command: python -m arq.monitor redis://redis:6379/
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "${ARQ_MONITOR_PORT:-8082}:8000"
+    depends_on:
+      - redis
+    networks:
+      - insights_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+
+networks:
+  insights_network:
+    driver: bridge
+
+
