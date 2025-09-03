@@ -2,6 +2,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Text, Integer, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
+from typing import Optional
 from app.db.base import Base
 
 class Competitor(Base):
@@ -20,7 +21,7 @@ class Competitor(Base):
     # Metadata
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime]
-    updated_at: Mapped[datetime | None]
+    updated_at: Mapped[Optional[datetime]]
     
     # Relationships
     organization: Mapped["Organization"] = relationship()

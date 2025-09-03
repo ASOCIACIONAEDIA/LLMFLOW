@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 import json
 from datetime import datetime
 
-from app.services.connection_manager_service import manager
+# from app.services.connection_manager_service import manager This import causes a circular dependency. Import it only when needed!
 from app.domain.events import BaseEvent, JobEvent, TaskEvent, ProgressEvent, ErrorEvent, SystemEvent, UserNotificationEvent
 from app.domain.types import WebSocketEventType
 from app.db.redis import get_redis_client
@@ -24,12 +24,17 @@ class EventDispatcher:
             self.redis_client = get_redis_client()
         except Exception as e:
             logger.error(f"Failed to initialize Redis client: {e}")
+    
+    def _get_manager(self): # type: ignore
+        from app.services.connection_manager_service import manager
+        return manager
         
     async def dispatch_event(self, event: BaseEvent) -> None:
         """
         Main dispatch method for events
         """
         try:
+            manager = self._get_manager()
             await manager.send_event_to_channels(event)
 
             if self.redis_client:

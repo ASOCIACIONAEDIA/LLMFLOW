@@ -13,13 +13,10 @@ from app.db.session import engine
 from app.api.v1 import router as api_v1_router
 
 
-from app.workers.tasks import ARQ_REDIS_SETTINGS
-
-
+from app.workers.queue import ARQ_REDIS_SETTINGS
 
 setup_logging()
 logger = logging.getLogger(__name__)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

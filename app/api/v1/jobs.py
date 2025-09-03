@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Dict, Any
 
-from app.api.deps import get_current_active_user, get_job_service, get_job_repo
+from app.api.deps import get_current_active_user, get_job_service, get_job_repo, get_arq_pool
 from app.models import User
 from app.services.job_service import JobService 
 from app.repositories.job_repo import JobRepository
@@ -10,7 +10,7 @@ from app.schemas.jobs import JobCreateRequest, JobResponse
 from app.domain.types import JobType
 from arq.connections import ArqRedis
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.base import get_session
+from app.db.session import get_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

@@ -2,7 +2,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship # Added relations
 from sqlalchemy import BigInteger, ForeignKey, Text, DateTime
 from app.db.base import Base
 from datetime import datetime, timezone # Ensure datetime is imported for type hints
-
+from typing import Optional
 class TwoFactorCode(Base):
     __tablename__ = "two_factor_codes"
 
@@ -10,7 +10,7 @@ class TwoFactorCode(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     code_hash: Mapped[str] = mapped_column(Text, nullable=False)
     expires_at: Mapped[datetime]
-    used_at: Mapped[datetime | None]
+    used_at: Mapped[Optional[datetime]]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False) # Set default
     
     # Relationship

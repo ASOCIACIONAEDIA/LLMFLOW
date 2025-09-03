@@ -37,7 +37,6 @@ class EventEmitter:
                 job_type=job_type,
                 user_id=self.user_id,
                 organization_id=self.organization_id,
-                job_type=job_type
             )
             self.logger.info(f"Job started event emitted for job {self.job_id}")
         except Exception as e:

@@ -4,14 +4,14 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from datetime import datetime
 from app.db.base import Base
 from app.domain.types import JobStatus, JobSourceStatus, SourceType, JobType, JobTargetType
-
+from typing import Optional
 class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
-    unit_id: Mapped[int | None] = mapped_column(ForeignKey("units.id", ondelete="SET NULL"))
+    unit_id: Mapped[Optional[int]] = mapped_column(ForeignKey("units.id", ondelete="SET NULL"))
     
     # Job type and target information
     job_type: Mapped[JobType] = mapped_column(
@@ -27,11 +27,11 @@ class Job(Base):
     target_id: Mapped[int] = mapped_column(Integer, nullable=False)  # organization_id or competitor_id
     
     status: Mapped[JobStatus] = mapped_column(PgEnum(JobStatus, name="job_status", create_constraint=False), default=JobStatus.PENDING, nullable=False)
-    error: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[Optional[str]] = mapped_column(Text)
     result: Mapped[dict] = mapped_column(JSONB, default=dict)  # Store job results
     created_at: Mapped[datetime]
-    started_at: Mapped[datetime | None]
-    finished_at: Mapped[datetime | None]
+    started_at: Mapped[Optional[datetime]]
+    finished_at: Mapped[Optional[datetime]]
 
     sources: Mapped[list["JobSource"]] = relationship(back_populates="job", cascade="all, delete-orphan")
     events: Mapped[list["JobEvent"]] = relationship(back_populates="job", cascade="all, delete-orphan")
@@ -49,7 +49,7 @@ class JobSource(Base):
     source: Mapped[SourceType] = mapped_column(PgEnum(SourceType, name="source_type", create_constraint=False), nullable=False)
     status: Mapped[JobSourceStatus] = mapped_column(PgEnum(JobSourceStatus, name="job_source_status", create_constraint=False), default=JobSourceStatus.PENDING, nullable=False)
     result: Mapped[dict] = mapped_column(JSONB, default=dict)
-    error: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[Optional[str]] = mapped_column(Text)
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
 

@@ -7,7 +7,6 @@ from typing import Any, Optional
 
 import jwt  # PyJWT
 from passlib.context import CryptContext
-from passlib.exc import InvalidHash, UnknownHash, VerificationError
 
 from app.domain.types import Role, TokenType
 from .config import settings
@@ -36,8 +35,6 @@ def verify_password(plain: str, stored: str) -> bool:
     """
     try:
         return _pwd.verify(plain, stored)
-    except (InvalidHash, UnknownHash, VerificationError):
-        return False
     except Exception:
         logger.exception("Error while verifying password")
         return False

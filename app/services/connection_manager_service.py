@@ -33,12 +33,15 @@ class MultiplexedConnectionManager:
         self.last_heartbeat: Dict[WebSocket, datetime] = {}
         
         # Start cleanup task
-        asyncio.create_task(self._cleanup_stale_connections())
+        self._cleanup_task: Optional[asyncio.Task] = None
 
     async def connect_user(self, user_id: int, websocket: WebSocket) -> bool:
         """Connect a user with an empty subscription set"""
         try:
             await websocket.accept()
+
+            if self._cleanup_task is None:
+                self._cleanup_task = asyncio.create_task(self._cleanup_stale_connections())
             
             if user_id not in self.user_connections:
                 self.user_connections[user_id] = {}

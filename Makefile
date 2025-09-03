@@ -1,6 +1,6 @@
 # Makefile for Insights API
 
-.PHONY: help install dev prod test clean build up down logs shell db-migrate db-upgrade db-downgrade format lint
+.PHONY: help install dev prod test clean build up down logs shell db-migrate db-upgrade db-downgrade format lint logs-redis-commander
 
 # Default target
 help:
@@ -68,6 +68,9 @@ logs-api:
 
 logs-worker:
 	docker-compose logs -f worker
+
+logs-redis-commander:
+	docker-compose logs -f redis-commander
 
 shell:
 	docker-compose exec api bash

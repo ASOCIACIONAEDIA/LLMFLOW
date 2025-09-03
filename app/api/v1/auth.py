@@ -10,7 +10,6 @@ from app.services.user_service import UserService
 
 router = APIRouter()
 auth_service = AuthService()
-user_service = UserService()
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
@@ -58,6 +57,9 @@ async def register_user(
     db: AsyncSession = Depends(deps.get_db),
 ):
     user_repo = UserRepository(db)
+    # Create UserService with the user_repo
+    user_service = UserService(user_repo)
+    
     new_user = await user_service.create_user(
         user_repo=user_repo,
         name=user_in.name,
