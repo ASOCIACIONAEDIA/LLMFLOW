@@ -24,10 +24,10 @@ help:
 # Development setup
 install:
 	uv sync
-
+	uv lock
 dev: 
 	@echo "Starting development environment..."
-	docker-compose up --build -d
+	DOCKER_BUILDKIT=0 docker-compose up --build -d
 	@echo ""
 	@echo "🚀 Development environment is running!"
 	@echo ""
