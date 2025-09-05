@@ -1,14 +1,19 @@
 """Data factories for creating test objects."""
 import asyncio
+import secrets
 from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timezone, timedelta
 
 from app.models.user import User
 from app.models.job import Job
 from app.models.product import Product
 from app.models.review import Review
 from app.models.organization import Organization
-from app.core.security import hash_password
+from app.models.email_verification import EmailVerification
+from app.models.twofa import TwoFactorCode
+from app.models.token import RefreshToken
+from app.core.security import hash_password, hash_token
 from app.domain.types import JobType, JobStatus, Role
 
 
@@ -19,23 +24,24 @@ class UserFactory:
     async def create(
         session: AsyncSession,
         email: str = "test@example.com",
-        username: str = "testuser",
+        name: str = "Test User",
         password: str = "testpassword123",
         role: Role = Role.USER,
         is_active: bool = True,
         is_verified: bool = True,
-        organization_id: int = 1,
+        is_2fa_enabled: bool = False,
+        organization_id: Optional[int] = None,
         **kwargs
     ) -> User:
         """Create a test user."""
         user_data = {
+            "name": name,
             "email": email,
-            "username": username,
             "hashed_password": hash_password(password),
-            "full_name": kwargs.get("full_name", "Test User"),
             "role": role,
             "is_active": is_active,
             "is_verified": is_verified,
+            "is_2fa_enabled": is_2fa_enabled,
             "organization_id": organization_id,
             **kwargs
         }
@@ -54,15 +60,13 @@ class OrganizationFactory:
     async def create(
         session: AsyncSession,
         name: str = "Test Organization",
-        description: str = "A test organization",
-        is_active: bool = True,
+        email: Optional[str] = "org@example.com",
         **kwargs
     ) -> Organization:
         """Create a test organization."""
         org_data = {
             "name": name,
-            "description": description,
-            "is_active": is_active,
+            "email": email,
             **kwargs
         }
         
@@ -71,6 +75,99 @@ class OrganizationFactory:
         await session.commit()
         await session.refresh(org)
         return org
+
+
+class EmailVerificationFactory:
+    """Factory for creating email verification tokens."""
+    
+    @staticmethod
+    async def create(
+        session: AsyncSession,
+        user_id: int,
+        token: Optional[str] = None,
+        expires_hours: int = 24,
+        verified_at: Optional[datetime] = None,
+        **kwargs
+    ) -> EmailVerification:
+        """Create an email verification token."""
+        if token is None:
+            token = secrets.token_urlsafe(32)
+        
+        verification_data = {
+            "user_id": user_id,
+            "token": token,
+            "token_hash": hash_token(token),
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=expires_hours),
+            "verified_at": verified_at,
+            **kwargs
+        }
+        
+        verification = EmailVerification(**verification_data)
+        session.add(verification)
+        await session.commit()
+        await session.refresh(verification)
+        return verification
+
+
+class TwoFactorCodeFactory:
+    """Factory for creating 2FA codes."""
+    
+    @staticmethod
+    async def create(
+        session: AsyncSession,
+        user_id: int,
+        code: str = "123456",
+        expires_minutes: int = 5,
+        used_at: Optional[datetime] = None,
+        **kwargs
+    ) -> TwoFactorCode:
+        """Create a 2FA code."""
+        code_data = {
+            "user_id": user_id,
+            "code_hash": hash_token(code),
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=expires_minutes),
+            "used_at": used_at,
+            **kwargs
+        }
+        
+        tfa_code = TwoFactorCode(**code_data)
+        session.add(tfa_code)
+        await session.commit()
+        await session.refresh(tfa_code)
+        return tfa_code
+
+
+class RefreshTokenFactory:
+    """Factory for creating refresh tokens."""
+    
+    @staticmethod
+    async def create(
+        session: AsyncSession,
+        user_id: int,
+        token: Optional[str] = None,
+        expires_days: int = 7,
+        revoked_at: Optional[datetime] = None,
+        **kwargs
+    ) -> RefreshToken:
+        """Create a refresh token."""
+        if token is None:
+            token = secrets.token_urlsafe(32)
+        
+        token_data = {
+            "id": secrets.token_urlsafe(16),
+            "user_id": user_id,
+            "token_hash": hash_token(token),
+            "expires_at": datetime.now(timezone.utc) + timedelta(days=expires_days),
+            "created_at": datetime.now(timezone.utc),
+            "revoked_at": revoked_at,
+            **kwargs
+        }
+        
+        refresh_token = RefreshToken(**token_data)
+        session.add(refresh_token)
+        await session.commit()
+        await session.refresh(refresh_token)
+        return refresh_token
 
 
 class JobFactory:
@@ -106,102 +203,3 @@ class JobFactory:
         return job
 
 
-class ProductFactory:
-    """Factory for creating test products."""
-    
-    @staticmethod
-    async def create(
-        session: AsyncSession,
-        name: str = "Test Product",
-        description: str = "A test product",
-        **kwargs
-    ) -> Product:
-        """Create a test product."""
-        product_data = {
-            "name": name,
-            "description": description,
-            **kwargs
-        }
-        
-        product = Product(**product_data)
-        session.add(product)
-        await session.commit()
-        await session.refresh(product)
-        return product
-
-
-class ReviewFactory:
-    """Factory for creating test reviews."""
-    
-    @staticmethod
-    async def create(
-        session: AsyncSession,
-        product_id: int,
-        rating: float = 4.5,
-        content: str = "This is a test review",
-        **kwargs
-    ) -> Review:
-        """Create a test review."""
-        review_data = {
-            "product_id": product_id,
-            "rating": rating,
-            "content": content,
-            **kwargs
-        }
-        
-        review = Review(**review_data)
-        session.add(review)
-        await session.commit()
-        await session.refresh(review)
-        return review
-
-
-class PlaceFactory:
-    """Factory for creating test discovered places."""
-    
-    @staticmethod
-    async def create(
-        session: AsyncSession,
-        organization_id: int,
-        job_id: str,
-        name: str = "Test Place",
-        google_place_id: str = "ChIJTest123456789",
-        full_address: str = "123 Test Street, Test City, Test Country",
-        postal_code: str = "12345",
-        country: str = "Test Country",
-        typical_time_spent: int = 60,
-        rating: float = 4.0,
-        num_reviews: int = 100,
-        created_by: Optional[int] = None,
-        extra: Optional[dict] = None,
-        **kwargs
-    ):
-        """Create a test discovered place."""
-        if extra is None:
-            extra = {
-                "category": "Test Category",
-                "phone": "+1 123 456 7890"
-            }
-        
-        place_data = {
-            "organization_id": organization_id,
-            "job_id": job_id,
-            "name": name,
-            "google_place_id": google_place_id,
-            "full_address": full_address,
-            "postal_code": postal_code,
-            "country": country,
-            "typical_time_spent": typical_time_spent,
-            "rating": rating,
-            "num_reviews": num_reviews,
-            "created_by": created_by,
-            "extra": extra,
-            **kwargs
-        }
-        
-        from app.models.places import DiscoveredPlaces
-        place = DiscoveredPlaces(**place_data)
-        session.add(place)
-        await session.commit()
-        await session.refresh(place)
-        return place

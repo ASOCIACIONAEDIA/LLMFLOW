@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     JWT_ISSUER: str = "insights"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Added for refresh token expiry
     ALLOWED_ROLES: List[Role] = [Role.USER, Role.ADMIN, Role.CORPORATE_ADMIN]
 
     # --- Password policy ---

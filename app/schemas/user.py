@@ -1,42 +1,52 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
 from app.domain.types import Role
 from app.core.security import password_meets_policy
 from app.core.exceptions import AppError
 
-class UserBase(BaseModel):
-    name: str
+class UserBase(BaseModel): # IDK If i like this or not
+    name: str = Field(min_length=3, max_length=255)
     email: EmailStr
-    is_active: bool
-    is_2fa_enabled: bool
-    role: Role
+
+class UserCreate(UserBase):
+    password: str = Field(min_length=8)
+    organization_id: Optional[int] = None
+    role: Role = Role.USER
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=3, max_length=255)
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+    is_2fa_enabled: Optional[bool] = None
 
 class UserResponse(UserBase):
     id: int
-    organization_id: int
-    unit_id: Optional[int] = None
+    organization_id: Optional[int] = None
+    role: Role
+    is_active: bool
+    is_verified: bool
+    is_2fa_enabled: bool
     created_at: datetime
     updated_at: datetime
     
     class Config:
         from_attributes = True
 
-class UserUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    password: Optional[str] = None
-    is_active: Optional[bool] = None
-    is_2fa_enabled: Optional[bool] = None
-    role: Optional[Role] = None
+class UserProfileResponse(UserResponse):
+    organization_name: Optional[str] = None
+    unit_name: Optional[str] = None
 
-    @field_validator('password')
-    @classmethod
-    def validate_password_policy(cls, password: str | None) -> str | None:
-        try:
-            password_meets_policy(password)
-        except ValueError as e:
-            raise AppError(str(e), status_code=422, code="password_policy_violation")
-        return password
+class UserListResponse(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    role: Role
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
     
     

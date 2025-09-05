@@ -11,4 +11,5 @@ from .twofa import TwoFactorCode
 from .product import DiscoveredProduct
 from .review import Review
 from .places import DiscoveredPlaces
+from .email_verification import EmailVerification
 

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import logging
 import re
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
+import random
 
 import jwt  # PyJWT
 from passlib.context import CryptContext
@@ -17,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Use bcrypt
 _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# LOL -> Used to equaize timing when the user/email doesn't exist
+# LOL -> Used to equalize timing when the user/email doesn't exist
 # We compute it once per process and ignore its return value
 DUMMY_BCRYPT_HASH = _pwd.hash("dummy")
 
@@ -62,6 +65,17 @@ def burn_time_for_unknown_user(plain: str) -> None:
     except Exception:
         # Swallow any error; this is purely to equalize timing.
         pass
+
+def hash_token(token: str) -> str:
+    """
+    Hash a token using SHA-256 for secure storage.
+    We use SHA-256 instead of bcrypt for tokens as we need deterministic hashing.
+    """
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+def generate_secure_token(length: int = 32) -> str:
+    """Generate a cryptographically secure random token."""
+    return secrets.token_urlsafe(length)
 
 # --- JWT ---
 
@@ -134,8 +148,7 @@ def get_bearer_from_header(authorization: Optional[str]) -> str:
         raise UnauthorizedError("Missing bearer token")
     return authorization.split(" ", 1)[1]
 
-# --- Two-Factor Auth ---
 def generate_2fa_code(length: Optional[int] = None) -> str:
-    import random
+    """Generate a 2FA code."""
     length = length or settings.TWOFA_CODE_LENGTH
     return "".join(random.choices("0123456789", k=length))

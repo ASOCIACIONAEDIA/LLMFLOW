@@ -15,9 +15,12 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_session
 from app.db.redis import get_redis_client
-from app.api.deps import get_current_active_user
+from app.api.deps import get_current_user
 from app.models.user import User
-from app.core.security import create_access_token
+from app.models.organization import Organization
+from app.models.email_verification import EmailVerification
+from app.core.security import create_token, hash_password
+from app.domain.types import Role, TokenType
 
 
 # Test database URL - using SQLite for fast tests, but you can use PostgreSQL if preferred
@@ -40,9 +43,10 @@ def override_settings():
     settings.DB_URL = TEST_DATABASE_URL
     settings.REDIS_URL = "redis://localhost:6379/1"  # Test database
     settings.ARQ_REDIS_URL = "redis://localhost:6379/1"
-    settings.JWT_SECRET_KEY = "test-secret-key"
+    settings.JWT_SECRET_KEY = "test-secret-key-for-user-management"
     settings.ENV = "test"
     settings.DEBUG = True
+    settings.SMTP_HOST = None  # Disable email sending in tests
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -51,8 +55,8 @@ async def test_engine():
     engine = create_async_engine(
         TEST_DATABASE_URL,
         poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-        echo=True  # Set to False to reduce test output
+        connect_args={"check_same_thread": False} if "sqlite" in TEST_DATABASE_URL else {},
+        echo=False  # Set to True for debugging
     )
     
     # Create all tables
@@ -77,7 +81,12 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     )
     
     async with async_session() as session:
-        yield session
+        # Start a transaction that will be rolled back after the test
+        transaction = await session.begin()
+        try:
+            yield session
+        finally:
+            await transaction.rollback()
 
 
 @pytest_asyncio.fixture
@@ -118,70 +127,13 @@ async def client(db_session, test_redis) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture
-async def authenticated_client(client: AsyncClient, test_user: User) -> AsyncClient:
-    """Create authenticated HTTP client."""
-    access_token = create_access_token(subject=str(test_user.id))
-    client.headers.update({"Authorization": f"Bearer {access_token}"})
-    return client
-
-
 # Test data fixtures
 @pytest_asyncio.fixture
-async def test_user(db_session: AsyncSession) -> User:
-    """Create a test user."""
-    from app.models.user import User
-    from app.core.security import hash_password
-    
-    user = User(
-        email="test@example.com",
-        username="testuser",
-        hashed_password=hash_password("testpassword123"),
-        full_name="Test User",
-        role="USER",
-        is_active=True,
-        is_verified=True,
-        organization_id=1
-    )
-    
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def admin_user(db_session: AsyncSession) -> User:
-    """Create a test admin user."""
-    from app.models.user import User
-    from app.core.security import hash_password
-    
-    user = User(
-        email="admin@example.com",
-        username="adminuser",
-        hashed_password=hash_password("adminpassword123"),
-        full_name="Admin User",
-        role="ADMIN",
-        is_active=True,
-        is_verified=True,
-        organization_id=1
-    )
-    
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def test_organization(db_session: AsyncSession):
+async def test_organization(db_session: AsyncSession) -> Organization:
     """Create a test organization."""
-    from app.models.organization import Organization
-    
     org = Organization(
         name="Test Organization",
-        description="A test organization",
-        is_active=True
+        email="org@example.com"
     )
     
     db_session.add(org)
@@ -191,34 +143,155 @@ async def test_organization(db_session: AsyncSession):
 
 
 @pytest_asyncio.fixture
-async def test_job(db_session: AsyncSession, test_user: User):
-    """Create a test job."""
-    from app.models.job import Job
-    from app.domain.types import JobType, JobStatus
-    
-    job = Job(
-        user_id=test_user.id,
-        organization_id=test_user.organization_id,
-        job_type=JobType.REVIEW_SCRAPING,
-        status=JobStatus.PENDING,
-        sources_data=[{"name": "test_source", "url": "https://example.com"}]
+async def test_user(db_session: AsyncSession, test_organization: Organization) -> User:
+    """Create a test user."""
+    user = User(
+        name="Test User",
+        email="test@example.com",
+        hashed_password=hash_password("testpassword123"),
+        role=Role.USER,
+        is_active=True,
+        is_verified=True,
+        organization_id=test_organization.id
     )
     
-    db_session.add(job)
+    db_session.add(user)
     await db_session.commit()
-    await db_session.refresh(job)
-    return job
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def admin_user(db_session: AsyncSession, test_organization: Organization) -> User:
+    """Create a test admin user."""
+    user = User(
+        name="Admin User",
+        email="admin@example.com",
+        hashed_password=hash_password("adminpassword123"),
+        role=Role.ADMIN,
+        is_active=True,
+        is_verified=True,
+        organization_id=test_organization.id
+    )
+    
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def corporate_admin_user(db_session: AsyncSession, test_organization: Organization) -> User:
+    """Create a test corporate admin user."""
+    user = User(
+        name="Corporate Admin",
+        email="corp.admin@example.com",
+        hashed_password=hash_password("corppassword123"),
+        role=Role.CORPORATE_ADMIN,
+        is_active=True,
+        is_verified=True,
+        organization_id=test_organization.id
+    )
+    
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def unverified_user(db_session: AsyncSession, test_organization: Organization) -> User:
+    """Create an unverified test user."""
+    user = User(
+        name="Unverified User",
+        email="unverified@example.com",
+        hashed_password=hash_password("password123"),
+        role=Role.USER,
+        is_active=False,
+        is_verified=False,
+        organization_id=test_organization.id
+    )
+    
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def user_with_2fa(db_session: AsyncSession, test_organization: Organization) -> User:
+    """Create a user with 2FA enabled."""
+    user = User(
+        name="2FA User",
+        email="2fa@example.com",
+        hashed_password=hash_password("password123"),
+        role=Role.USER,
+        is_active=True,
+        is_verified=True,
+        is_2fa_enabled=True,
+        organization_id=test_organization.id
+    )
+    
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def authenticated_client(client: AsyncClient, test_user: User) -> AsyncClient:
+    """Create authenticated HTTP client."""
+    access_token = create_token(
+        subject=test_user.id,
+        role=test_user.role,
+        token_type=TokenType.ACCESS,
+        extra_claims={"org_id": test_user.organization_id}
+    )
+    client.headers.update({"Authorization": f"Bearer {access_token}"})
+    return client
+
+
+@pytest_asyncio.fixture
+async def admin_authenticated_client(client: AsyncClient, admin_user: User) -> AsyncClient:
+    """Create authenticated HTTP client for admin user."""
+    access_token = create_token(
+        subject=admin_user.id,
+        role=admin_user.role,
+        token_type=TokenType.ACCESS,
+        extra_claims={"org_id": admin_user.organization_id}
+    )
+    client.headers.update({"Authorization": f"Bearer {access_token}"})
+    return client
+
+
+@pytest_asyncio.fixture
+async def corp_admin_authenticated_client(client: AsyncClient, corporate_admin_user: User) -> AsyncClient:
+    """Create authenticated HTTP client for corporate admin user."""
+    access_token = create_token(
+        subject=corporate_admin_user.id,
+        role=corporate_admin_user.role,
+        token_type=TokenType.ACCESS,
+        extra_claims={"org_id": corporate_admin_user.organization_id}
+    )
+    client.headers.update({"Authorization": f"Bearer {access_token}"})
+    return client
 
 
 # Mock fixtures for external services
 @pytest.fixture
-def mock_external_api(monkeypatch):
-    """Mock external API calls."""
-    async def mock_api_call(*args, **kwargs):
-        return {"status": "success", "data": "mocked"}
+def mock_email_service(monkeypatch):
+    """Mock email service for testing."""
+    emails_sent = []
     
-    # Add monkeypatch logic here for specific external APIs
-    return mock_api_call
+    async def mock_send_email(recipient, subject, content):
+        emails_sent.append({
+            "recipient": recipient,
+            "subject": subject,
+            "content": content
+        })
+    
+    monkeypatch.setattr("app.services.mailer.mailer_service._send_email", mock_send_email)
+    return emails_sent
 
 
 # Event loop fixture for proper async test handling
@@ -235,11 +308,3 @@ def event_loop():
 def anyio_backend():
     """Use asyncio as the async backend."""
     return "asyncio"
-
-
-# Test data cleanup
-@pytest_asyncio.fixture(autouse=True)
-async def cleanup_test_data(db_session: AsyncSession):
-    """Automatically clean up test data after each test."""
-    yield
-    await db_session.rollback()

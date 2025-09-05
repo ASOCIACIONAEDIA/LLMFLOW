@@ -13,7 +13,7 @@ class SourceConfigRequest(BaseModel):
 class JobCreateRequest(BaseModel):
     sources: List[SourceConfigRequest]
 
-class JobSourceRepsonse(BaseModel):
+class JobSourceResponse(BaseModel):
     id: int
     source: SourceType
     status: JobSourceStatus
@@ -35,7 +35,7 @@ class JobResponse(BaseModel):
     created_at: datetime
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
-    sources: List[JobSourceRepsonse] = Field(default_factory=list)
+    sources: List[JobSourceResponse] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
