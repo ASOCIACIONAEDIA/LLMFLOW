@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from app.domain.types import Role
 from app.core.security import password_meets_policy
@@ -13,6 +13,15 @@ class UserCreate(UserBase):
     password: str = Field(min_length=8)
     organization_id: Optional[int] = None
     role: Role = Role.USER
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password_policy(cls, password: str) -> str:
+        try:
+            password_meets_policy(password)
+        except ValueError as e:
+            raise AppError(str(e), status_code=422, code="password_policy_violation")
+        return password
 
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=255)
@@ -44,6 +53,7 @@ class UserListResponse(BaseModel):
     role: Role
     is_active: bool
     is_verified: bool
+    organization_id: Optional[int] = None 
     created_at: datetime
     
     class Config:

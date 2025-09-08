@@ -129,7 +129,7 @@ addopts = [
     "--cov-fail-under=70",
 ]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"  # ADD THIS LINE
+asyncio_default_fixture_loop_scope = "function"  # This helps with loop isolation
 markers = [
     "unit: Unit tests",
     "integration: Integration tests", 
@@ -142,6 +142,7 @@ markers = [
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]

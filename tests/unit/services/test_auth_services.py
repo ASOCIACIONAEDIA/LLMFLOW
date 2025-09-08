@@ -41,7 +41,7 @@ class TestAuthService:
         assert is_2fa_enabled == test_user.is_2fa_enabled
         assert remember_me is True
 
-    @pytest.mark.asyncio
+    
     async def test_login_user_invalid_email(
         self, 
         auth_service: AuthService,
@@ -71,7 +71,7 @@ class TestAuthService:
             )
         assert "Invalid credentials" in str(exc_info.value)
 
-    @pytest.mark.asyncio  
+      
     async def test_login_user_inactive(
         self, 
         auth_service: AuthService,
@@ -94,7 +94,7 @@ class TestAuthService:
             )
         assert "inactive" in str(exc_info.value).lower()
 
-    @pytest.mark.asyncio
+    
     async def test_login_user_unverified(
         self, 
         auth_service: AuthService,
@@ -164,7 +164,7 @@ class TestAuthService:
         assert "access_token" in tokens
         assert "refresh_token" in tokens
 
-    @pytest.mark.asyncio
+    
     async def test_refresh_access_token_success(
         self, 
         auth_service: AuthService,
@@ -185,7 +185,7 @@ class TestAuthService:
         assert "access_token" in new_tokens
         assert "refresh_token" not in new_tokens
 
-    @pytest.mark.asyncio
+    
     async def test_refresh_access_token_invalid(
         self, 
         auth_service: AuthService,
@@ -196,7 +196,7 @@ class TestAuthService:
             await auth_service.refresh_access_token(user_repo, "invalid_token")
         assert "Invalid or expired refresh token" in str(exc_info.value)
 
-    @pytest.mark.asyncio  
+      
     async def test_verify_email_success(
         self, 
         auth_service: AuthService,
@@ -218,7 +218,7 @@ class TestAuthService:
         assert unverified_user.is_verified is True
         assert unverified_user.is_active is True
 
-    @pytest.mark.asyncio  
+      
     async def test_verify_email_invalid_token(
         self, 
         auth_service: AuthService,
@@ -270,7 +270,7 @@ class TestAuthService:
         db_session: AsyncSession
     ):
         """Test disabling 2FA."""
-        await auth_service.disable_2fa(user_repo, user_with_2fa.id, "password123")
+        await auth_service.disable_2fa(user_repo, user_with_2fa.id, "testpassword123")
         
         await db_session.refresh(user_with_2fa)
         assert user_with_2fa.is_2fa_enabled is False

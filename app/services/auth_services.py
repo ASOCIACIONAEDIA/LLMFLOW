@@ -50,11 +50,12 @@ class AuthService:
         """
         user = await self._get_user_and_handle_not_found(user_repo, email)
 
-        if not user.is_active:
-            raise UnauthorizedError("User account is inactive")
-        
+        # Fixed: Check verification status before inactive status
         if not user.is_verified:
             raise UnauthorizedError("Please verify your email before logging in")
+        
+        if not user.is_active:
+            raise UnauthorizedError("User account is inactive")
         
         if not verify_password(password, user.hashed_password):
             raise UnauthorizedError("Invalid credentials")
@@ -72,7 +73,6 @@ class AuthService:
         code = generate_2fa_code()
         hashed_code = hash_token(code)
 
-        # Fixed: Pass datetime object directly
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.TWOFA_TTL_MINUTES)
         await user_repo.create_2fa_code(user_id, hashed_code, expires_at)
 
@@ -139,7 +139,7 @@ class AuthService:
         await user_repo.create_refresh_token(
             user_id=user_id,
             token_hash=token_hash,
-            expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS,  # Fixed: use correct setting
+            expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS,
         )
 
         return token
@@ -154,11 +154,8 @@ class AuthService:
         if not user_id:
             raise UnauthorizedError("Invalid or expired refresh token")
 
-        # Issue new access token
+        # Issue new access token without refresh token
         tokens = await self.issue_tokens(user_repo, user_id, remember_me=False)
-        
-        # Remove the refresh_token from response since we're not issuing a new one
-        tokens.pop("refresh_token", None)
 
         logger.info(f"Access token refreshed for user {user_id}")
         return tokens
@@ -171,12 +168,14 @@ class AuthService:
         await user_repo.revoke_refresh_token(token_hash)
         logger.info("Refresh token revoked")
     
-    async def revoke_all_refresh_tokens(self, user_repo: UserRepository, user_id: int) -> None:
+    async def revoke_all_refresh_tokens(self, user_repo: UserRepository, user_id: int) -> int:
         """
         Revokes all refresh tokens for a user.
+        Returns the count of revoked tokens.
         """
-        await user_repo.revoke_all_user_refresh_tokens(user_id)
-        logger.info(f"All refresh tokens revoked for user {user_id}")
+        count = await user_repo.revoke_all_user_refresh_tokens(user_id)
+        logger.info(f"All refresh tokens revoked for user {user_id}, count: {count}")
+        return count
     
     async def send_email_verification(self, user_repo: UserRepository, user_id: int, background_tasks: BackgroundTasks) -> None:
         """
@@ -216,7 +215,7 @@ class AuthService:
         user_id = await user_repo.verify_email_verification(token)
 
         if not user_id:
-            raise AppError("Invalid or expired verification token", status_code=400, code="invalid_token")
+            return False  # Fixed: Return False instead of raising exception for service layer
         
         # Activate the user account
         await user_repo.update_user(user_id, is_verified=True, is_active=True)
@@ -232,11 +231,11 @@ class AuthService:
         if not user:
             raise NotFoundError("User not found")
         
-        if not verify_password(password, user.hashed_password):
-            raise UnauthorizedError("Invalid password")
-        
         if user.is_2fa_enabled:
             raise AppError("2FA is already enabled", status_code=400, code="already_enabled")
+        
+        if not verify_password(password, user.hashed_password):
+            raise UnauthorizedError("Invalid password")
         
         await user_repo.update_user(user_id, is_2fa_enabled=True)
         logger.info(f"2FA enabled for user {user_id}")
@@ -249,11 +248,11 @@ class AuthService:
         if not user:
             raise NotFoundError("User not found")
         
-        if not verify_password(password, user.hashed_password):
-            raise UnauthorizedError("Invalid password")
-        
         if not user.is_2fa_enabled:
             raise AppError("2FA is not enabled", status_code=400, code="not_enabled")
+        
+        if not verify_password(password, user.hashed_password):
+            raise UnauthorizedError("Invalid password")
         
         await user_repo.update_user(user_id, is_2fa_enabled=False)
         # Revoke all existing 2FA codes

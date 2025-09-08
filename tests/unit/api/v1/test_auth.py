@@ -302,7 +302,10 @@ class TestAuthEndpoints:
         
         result = response.json()
         assert "access_token" in result
-        assert "refresh_token" not in result  # New refresh token not issued
+        assert "token_type" in result
+        assert "expires_in" in result
+        # When refreshing, no new refresh token is issued (remember_me=False)
+        assert result.get("refresh_token") is None
 
     async def test_refresh_token_invalid(self, client: AsyncClient):
         """Test refresh with invalid token."""

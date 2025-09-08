@@ -204,12 +204,18 @@ class TestUserEndpoints:
         user_data = {
             "name": "New Admin User",
             "email": "newadmin@example.com",
-            "password": "SecurePass123!",
+            "password": "SecurePass123!",  # Meets policy: 8+ chars, upper, lower, special
             "role": "ADMIN",
             "organization_id": test_user.organization_id
         }
         
         response = await admin_authenticated_client.post("/api/v1/users/", json=user_data)
+        
+        # Debug: Print response if it fails
+        if response.status_code != 201:
+            print(f"Response status: {response.status_code}")
+            print(f"Response body: {response.json()}")
+        
         assert response.status_code == 201
         
         result = response.json()

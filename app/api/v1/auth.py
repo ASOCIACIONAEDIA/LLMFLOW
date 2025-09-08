@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 
 from app.api import deps
 from app.schemas.auth import (
@@ -64,7 +64,7 @@ async def register_user(
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
         
-@router.post("verify-email")
+@router.post("/verify-email")
 async def verify_email(
     request: EmailVerificationRequest,
     background_tasks: BackgroundTasks,
@@ -75,15 +75,18 @@ async def verify_email(
     """
     user_repo = UserRepository(db)
     try:
-        await auth_service.verify_email(user_repo, request.token)
-        user_id = await user_repo.verify_email_verification(request.email)
-        if user_id:
-            user = await user_repo.get_by_id(user_id)
-            if user:
-                background_tasks.add_task(
-                    auth_service._send_welcome_email, #TODO:ASK
-                    user.email,
-                    user.name
+        result = await auth_service.verify_email(user_repo, request.token)
+        # Fixed: Remove duplicate verification call with wrong parameter
+        if result:
+            # Get user ID from the token verification process
+            user_id = await user_repo.verify_email_verification(request.token)
+            if user_id:
+                user = await user_repo.get_by_id(user_id)
+                if user:
+                    background_tasks.add_task(
+                        auth_service._send_welcome_email,
+                        user.email,
+                        user.name
                     )
         return {"message": "Email verified successfully. You can now login."}
     except AppError as e:

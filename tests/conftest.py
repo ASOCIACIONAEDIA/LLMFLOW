@@ -22,8 +22,6 @@ from app.models.organization import Organization
 from app.core.security import create_token, hash_password
 from app.domain.types import Role, TokenType
 
-# Use auto mode for pytest-asyncio
-pytest_asyncio_auto_mode = True
 
 def _detect_docker_environment():
     """Detect if we're running inside a Docker container."""
@@ -62,6 +60,7 @@ def override_settings():
     settings.DEBUG = True
     settings.SMTP_HOST = None
 
+# Fix asyncio loop issues by using session scope for engine and proper cleanup
 @pytest_asyncio.fixture
 async def test_engine():
     """Create test database engine."""
@@ -173,8 +172,13 @@ async def authenticated_client(client: AsyncClient, test_user: User) -> AsyncCli
         token_type=TokenType.ACCESS,
         extra_claims={"org_id": test_user.organization_id}
     )
-    client.headers.update({"Authorization": f"Bearer {access_token}"})
-    return client
+    
+    # Return a new client with auth headers, but don't mess with dependency overrides
+    return AsyncClient(
+        transport=client._transport,
+        base_url=client.base_url,
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
 
 @pytest_asyncio.fixture
 async def admin_authenticated_client(client: AsyncClient, admin_user: User) -> AsyncClient:
@@ -185,8 +189,28 @@ async def admin_authenticated_client(client: AsyncClient, admin_user: User) -> A
         token_type=TokenType.ACCESS,
         extra_claims={"org_id": admin_user.organization_id}
     )
-    client.headers.update({"Authorization": f"Bearer {access_token}"})
-    return client
+    
+    return AsyncClient(
+        transport=client._transport,
+        base_url=client.base_url,
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+@pytest_asyncio.fixture  
+async def corp_admin_authenticated_client(client: AsyncClient, corporate_admin_user: User) -> AsyncClient:
+    """Create corporate admin authenticated HTTP client."""
+    access_token = create_token(
+        subject=corporate_admin_user.id,
+        role=corporate_admin_user.role,
+        token_type=TokenType.ACCESS,
+        extra_claims={"org_id": corporate_admin_user.organization_id}
+    )
+    
+    return AsyncClient(
+        transport=client._transport,
+        base_url=client.base_url,
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
 
 @pytest_asyncio.fixture
 async def unverified_user(db_session: AsyncSession, test_org: Organization) -> User:
@@ -221,18 +245,6 @@ async def corporate_admin_user(db_session: AsyncSession, test_org: Organization)
         role=Role.CORPORATE_ADMIN,
         organization_id=test_org.id
     )
-
-@pytest_asyncio.fixture
-async def corp_admin_authenticated_client(client: AsyncClient, corporate_admin_user: User) -> AsyncClient:
-    """Create corporate admin authenticated HTTP client."""
-    access_token = create_token(
-        subject=corporate_admin_user.id,
-        role=corporate_admin_user.role,
-        token_type=TokenType.ACCESS,
-        extra_claims={"org_id": corporate_admin_user.organization_id}
-    )
-    client.headers.update({"Authorization": f"Bearer {access_token}"})
-    return client
 
 # Add alias for backward compatibility
 @pytest_asyncio.fixture
