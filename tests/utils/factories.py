@@ -1,13 +1,13 @@
 """Data factories for creating test objects."""
-import asyncio
 import secrets
-from typing import Dict, Any, Optional
+import uuid
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 
 from app.models.user import User
 from app.models.job import Job
-from app.models.product import Product
+from app.models.product import DiscoveredProduct
 from app.models.review import Review
 from app.models.organization import Organization
 from app.models.email_verification import EmailVerification
@@ -60,10 +60,15 @@ class OrganizationFactory:
     async def create(
         session: AsyncSession,
         name: str = "Test Organization",
-        email: Optional[str] = "org@example.com",
+        email: Optional[str] = None,
         **kwargs
     ) -> Organization:
         """Create a test organization."""
+        # FIXED: Generate unique email if not provided
+        if email is None:
+            unique_id = secrets.token_hex(4)
+            email = f"org-{unique_id}@example.com"
+            
         org_data = {
             "name": name,
             "email": email,
@@ -77,6 +82,39 @@ class OrganizationFactory:
         return org
 
 
+class JobFactory:
+    """Factory for creating test jobs."""
+    
+    @staticmethod
+    async def create(
+        session: AsyncSession,
+        user_id: int,
+        organization_id: int,
+        job_type: JobType = JobType.REVIEW_SCRAPING,
+        status: JobStatus = JobStatus.PENDING,
+        sources_data: Optional[list] = None,
+        **kwargs
+    ) -> Job:
+        """Create a test job."""
+        if sources_data is None:
+            sources_data = [{"name": "test_source", "url": "https://example.com"}]
+        
+        job_data = {
+            "user_id": user_id,
+            "organization_id": organization_id,
+            "job_type": job_type,
+            "status": status,
+            "sources_data": sources_data,
+            **kwargs
+        }
+        
+        job = Job(**job_data)
+        session.add(job)
+        await session.commit()
+        await session.refresh(job)
+        return job
+
+
 class EmailVerificationFactory:
     """Factory for creating email verification tokens."""
     
@@ -86,7 +124,6 @@ class EmailVerificationFactory:
         user_id: int,
         token: Optional[str] = None,
         expires_hours: int = 24,
-        verified_at: Optional[datetime] = None,
         **kwargs
     ) -> EmailVerification:
         """Create an email verification token."""
@@ -98,7 +135,6 @@ class EmailVerificationFactory:
             "token": token,
             "token_hash": hash_token(token),
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=expires_hours),
-            "verified_at": verified_at,
             **kwargs
         }
         
@@ -154,7 +190,7 @@ class RefreshTokenFactory:
             token = secrets.token_urlsafe(32)
         
         token_data = {
-            "id": secrets.token_urlsafe(16),
+            "id": str(uuid.uuid4()),
             "user_id": user_id,
             "token_hash": hash_token(token),
             "expires_at": datetime.now(timezone.utc) + timedelta(days=expires_days),
@@ -168,38 +204,5 @@ class RefreshTokenFactory:
         await session.commit()
         await session.refresh(refresh_token)
         return refresh_token
-
-
-class JobFactory:
-    """Factory for creating test jobs."""
-    
-    @staticmethod
-    async def create(
-        session: AsyncSession,
-        user_id: int,
-        organization_id: int,
-        job_type: JobType = JobType.REVIEW_SCRAPING,
-        status: JobStatus = JobStatus.PENDING,
-        sources_data: Optional[list] = None,
-        **kwargs
-    ) -> Job:
-        """Create a test job."""
-        if sources_data is None:
-            sources_data = [{"name": "test_source", "url": "https://example.com"}]
-        
-        job_data = {
-            "user_id": user_id,
-            "organization_id": organization_id,
-            "job_type": job_type,
-            "status": status,
-            "sources_data": sources_data,
-            **kwargs
-        }
-        
-        job = Job(**job_data)
-        session.add(job)
-        await session.commit()
-        await session.refresh(job)
-        return job
 
 

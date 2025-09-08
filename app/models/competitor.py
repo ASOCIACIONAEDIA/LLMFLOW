@@ -26,3 +26,4 @@ class Competitor(Base):
     # Relationships
     organization: Mapped["Organization"] = relationship()
     archetypes: Mapped[list["Archetype"]] = relationship(back_populates="competitor")
+    source_groups: Mapped[list["SourceGroup"]] = relationship(back_populates="competitor", cascade="all, delete-orphan")

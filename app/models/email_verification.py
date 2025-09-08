@@ -11,7 +11,7 @@ class EmailVerification(Base):
     id: Mapped[str] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     token: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    token_hass: Mapped[str] = mapped_column(Text, nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False) 
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False)

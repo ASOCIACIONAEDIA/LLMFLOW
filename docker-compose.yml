@@ -1,9 +1,9 @@
 #version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database with pgvector extension
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: insights_postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-insights}
@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-insights_pass}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      #- ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./scripts/init-pgvector.sql:/docker-entrypoint-initdb.d/01-init-pgvector.sql
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:

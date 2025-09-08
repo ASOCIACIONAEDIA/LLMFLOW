@@ -38,7 +38,7 @@ async def register_user(
     db: AsyncSession = Depends(deps.get_db),
 ) -> UserRegistrationResponse:
     """
-    Register a user ith optional organization selection
+    Register a user with optional organization selection
     """
     user_repo = UserRepository(db)
     user_services = UserService(user_repo)

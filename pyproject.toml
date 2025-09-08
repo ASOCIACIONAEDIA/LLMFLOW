@@ -126,8 +126,10 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--cov-report=term-missing",
+    "--cov-fail-under=70",
 ]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"  # ADD THIS LINE
 markers = [
     "unit: Unit tests",
     "integration: Integration tests", 
@@ -135,6 +137,11 @@ markers = [
     "slow: Slow running tests",
     "auth: Authentication related tests",
     "security: Security related tests",
+    "asyncio: async tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
 ]
 
 [tool.coverage.run]
