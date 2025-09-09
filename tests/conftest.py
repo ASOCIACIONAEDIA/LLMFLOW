@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_session
 from app.db.redis import get_redis_client
+from app.api import deps
 from app.models.user import User
 from app.models.organization import Organization
 from app.core.security import create_token, hash_password
@@ -125,6 +126,9 @@ async def test_redis():
 @pytest_asyncio.fixture
 async def client(db_session, test_redis) -> AsyncGenerator[AsyncClient, None]:
     """Create test HTTP client."""
+    # Ensure app routes use the per-test DB session (NullPool) and test Redis
+    app.dependency_overrides[deps.get_db] = lambda: db_session
+    # Optional: keep for backward-compat if anything still calls get_session
     app.dependency_overrides[get_session] = lambda: db_session
     app.dependency_overrides[get_redis_client] = lambda: test_redis
     
@@ -257,7 +261,7 @@ def mock_email_service(monkeypatch):
     """Mock email service."""
     emails_sent = []
     
-    async def mock_send_email(*args, **kwargs):
+    def mock_send_email(*args, **kwargs):
         # Handle different call signatures
         if len(args) >= 3:
             recipient, subject, content = args[0], args[1], args[2]

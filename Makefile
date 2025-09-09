@@ -193,3 +193,8 @@ test-local:
 	@echo "🧪 Running tests locally..."
 	@echo "⚠️  Warning: This requires local Python environment setup"
 	uv run pytest tests/ -v
+
+test-setup-show:
+	@echo "🔍 Running test setup debugging in Docker..."
+	docker-compose up -d --wait
+	docker-compose exec -e DOCKER_ENV=true api pytest tests/unit/ --setup-show -v -s
