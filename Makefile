@@ -56,7 +56,7 @@ dev:
 	@echo "  • API Docs: http://localhost:8000/docs"
 	@echo "  • pgAdmin: http://localhost:8080 (admin@insights.com / admin)"
 	@echo "  • Redis Commander: http://localhost:8081 (admin / admin)"
-	@echo "  • ARQ Monitor: http://localhost:8082"
+	@echo "  • ARQ Monitor: http://localhost:8082/arq/ui"
 	@echo ""
 	@echo "💡 Run 'make test' to run tests in Docker!"
 	@echo "💡 Run 'make shell' to open a shell in the API container!"
