@@ -2,6 +2,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Text, Enum as PgEnum, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from datetime import datetime
+from sqlalchemy import DateTime
 from app.db.base import Base
 from app.domain.types import JobStatus, JobSourceStatus, SourceType, JobType, JobTargetType
 from typing import Optional
@@ -29,9 +30,9 @@ class Job(Base):
     status: Mapped[JobStatus] = mapped_column(PgEnum(JobStatus, name="job_status", create_constraint=False), default=JobStatus.PENDING, nullable=False)
     error: Mapped[Optional[str]] = mapped_column(Text)
     result: Mapped[dict] = mapped_column(JSONB, default=dict)  # Store job results
-    created_at: Mapped[datetime]
-    started_at: Mapped[Optional[datetime]]
-    finished_at: Mapped[Optional[datetime]]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     sources: Mapped[list["JobSource"]] = relationship(back_populates="job", cascade="all, delete-orphan")
     events: Mapped[list["JobEvent"]] = relationship(back_populates="job", cascade="all, delete-orphan")
@@ -50,8 +51,8 @@ class JobSource(Base):
     status: Mapped[JobSourceStatus] = mapped_column(PgEnum(JobSourceStatus, name="job_source_status", create_constraint=False), default=JobSourceStatus.PENDING, nullable=False)
     result: Mapped[dict] = mapped_column(JSONB, default=dict)
     error: Mapped[Optional[str]] = mapped_column(Text)
-    started_at: Mapped[datetime | None]
-    finished_at: Mapped[datetime | None]
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     job: Mapped["Job"] = relationship(back_populates="sources")
 
@@ -60,7 +61,7 @@ class JobEvent(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
-    at: Mapped[datetime]
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     event: Mapped[str]
     data: Mapped[dict] = mapped_column(JSONB, default=dict)
 

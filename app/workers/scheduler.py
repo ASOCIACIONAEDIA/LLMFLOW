@@ -7,3 +7,4 @@ class WorkerSettings:
     """
     functions = task_registry.get_arq_functions()
     redis_settings = ARQ_REDIS_SETTINGS 
+    keep_result = 600

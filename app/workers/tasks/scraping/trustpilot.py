@@ -46,8 +46,9 @@ class TrustpilotScraper(BaseScraper):
         # e.g., check for trustpilot_url, company_id, etc.
         return True
 
+
 # Task function for ARQ
 async def scrape_trustpilot_reviews_task(ctx, job_id: str, organization_id: int, source_config: Dict[str, Any]):
-    """ARQ task function for Trustpilot scraping"""
+    """ARQ task function for Trustpilot reviews scraping"""
     scraper = TrustpilotScraper()
     return await scraper.execute(ctx, job_id, organization_id, source_config)

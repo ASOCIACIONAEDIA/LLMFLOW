@@ -25,7 +25,7 @@ class JobService:
         """
         Creates a job with specified type, adds its sources, and enqueues background tasks.
         """
-        job_id = f"job_{uuid.uuid4().hex}"
+        job_id = str(uuid.uuid4())
         target_id = target_id or organization_id
         
         logger.info(f"Creating {job_type.value} job {job_id} for user {user_id}, org {organization_id}, target {target_type.value}:{target_id}")

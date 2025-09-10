@@ -17,8 +17,8 @@ router = APIRouter()
 
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_job(
-    sources_data: List[Dict[str, Any]],
-    job_type: JobType = JobType.REVIEW_SCRAPING,  # NEW parameter
+    job: JobCreateRequest,
+    job_type: JobType = JobType.REVIEW_SCRAPING,
     current_user: User = Depends(get_current_active_user),
     arq_pool: ArqRedis = Depends(get_arq_pool),
     session: AsyncSession = Depends(get_session)
@@ -27,11 +27,12 @@ async def create_job(
     job_repo = JobRepository(session)
     job_service = JobService(job_repo, arq_pool)
     
+    sources_data = [s.model_dump() for s in job.sources]
     job_id = await job_service.create_and_start_job(
         user_id=current_user.id,
         organization_id=current_user.organization_id,
         sources_data=sources_data,
-        job_type=job_type  # NEW: Pass job_type
+        job_type=job_type
     )
     
     return {"job_id": job_id, "status": "started", "job_type": job_type.value}

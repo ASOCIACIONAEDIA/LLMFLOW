@@ -132,7 +132,7 @@ class BaseScraper(BaseTask):
             
             await job_service.update_source_progress(
                 job_id=job_id,
-                source_type=self.source_type,
+                source=self.source_type,
                 status=status,
                 result=result,
                 error=error,

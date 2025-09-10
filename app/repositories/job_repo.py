@@ -6,7 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
 from app.models import Job, JobSource, JobEvent
-from app.domain.types import JobStatus, JobSourceStatus, SourceType, JobType
+from app.domain.types import JobStatus, JobSourceStatus, SourceType, JobType, JobTargetType
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class JobRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
     
-    async def create_job(self, job_id: str, user_id: int, organization_id: int, job_type: JobType, unit_id: Optional[int] = None) -> Job:
+    async def create_job(self, job_id: str, user_id: int, organization_id: int, job_type: JobType, unit_id: Optional[int] = None, target_type: JobTargetType = JobTargetType.ORGANIZATION, target_id: int = None) -> Job:
         """
         Creates a new job record
         """
@@ -24,6 +24,8 @@ class JobRepository:
             organization_id=organization_id,
             job_type=job_type,
             unit_id=unit_id,
+            target_type=target_type,
+            target_id=target_id,
             created_at=datetime.now(timezone.utc),
             status=JobStatus.PENDING,
         )

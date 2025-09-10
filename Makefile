@@ -91,6 +91,18 @@ clean:
 logs:
 	docker-compose logs -f
 
+logs-api:
+	docker-compose logs -f api
+
+logs-worker:
+	docker-compose logs -f worker
+
+logs-redis:
+	docker-compose logs -f redis
+
+logs-arq-monitor:
+	docker-compose logs -f arq-monitor
+
 shell:
 	docker-compose exec api bash
 

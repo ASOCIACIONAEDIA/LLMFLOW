@@ -144,11 +144,11 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=
-      - REDIS_SSL=False
       - REDIS_DB=0
-      - MAX_JOBS=50000
       - QUEUE_NAME=arq:queue
+      - PYTHONPATH=/app
+    volumes:
+      - ./app:/app/app
     ports:
       - "${ARQ_MONITOR_PORT:-8082}:8000"
     depends_on:
