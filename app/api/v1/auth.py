@@ -75,19 +75,12 @@ async def verify_email(
     """
     user_repo = UserRepository(db)
     try:
-        result = await auth_service.verify_email(user_repo, request.token)
-        # Fixed: Remove duplicate verification call with wrong parameter
-        if result:
-            # Get user ID from the token verification process
-            user_id = await user_repo.verify_email_verification(request.token)
-            if user_id:
-                user = await user_repo.get_by_id(user_id)
-                if user:
-                    background_tasks.add_task(
-                        auth_service._send_welcome_email,
-                        user.email,
-                        user.name
-                    )
+        ok = await auth_service.verify_email(user_repo, request.token)
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification token"
+            )
         return {"message": "Email verified successfully. You can now login."}
     except AppError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -104,7 +97,7 @@ async def resend_verification_email(
     try:
         user = await user_repo.get_by_email(request.email)
         if not user:
-            return {"message": "If the email exists, a verification link has been sent."}
+            return {"message": "verification email sent successfully."}
         
         if user.is_verified:
             raise HTTPException(
@@ -113,14 +106,14 @@ async def resend_verification_email(
             )
         
         await auth_service.send_email_verification(user_repo, user.id, background_tasks)
-        return {"message": "Verification email sent successfully."}
+        return {"message": "verification email sent successfully."}
     except AppError as e:
         raise HTTPException(
             status_code=e.status_code,
             detail=e.message
         )
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, response_model_exclude_none=True)
 async def login(
     user_in: UserLoginRequest,
     background_tasks: BackgroundTasks,

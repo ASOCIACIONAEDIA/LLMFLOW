@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional, Dict, Any
 from fastapi import BackgroundTasks
 from app.repositories.user_repo import UserRepository
-from app.core.security import hash_password
+from app.core.security import hash_password, password_meets_policy
 from app.core.exceptions import ConflictError, NotFoundError, AppError
 from app.models import User, Organization
 from app.domain.types import Role
@@ -102,6 +102,9 @@ class UserService:
         if await self.user_repo.get_by_email(email):
             raise ConflictError(f"User with email {email} already exists")
         
+        # Enforce password policy here (not at schema) so permission checks can run first
+        password_meets_policy(user_data["password"])
+
         hashed_password = hash_password(user_data["password"])
 
         new_user = await self.user_repo.create_user(

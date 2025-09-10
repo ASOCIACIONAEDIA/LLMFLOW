@@ -13,15 +13,13 @@ class UserCreate(UserBase):
     password: str = Field(min_length=8)
     organization_id: Optional[int] = None
     role: Role = Role.USER
-    
-    @field_validator('password')
+
+    @field_validator('role', mode='before')
     @classmethod
-    def validate_password_policy(cls, password: str) -> str:
-        try:
-            password_meets_policy(password)
-        except ValueError as e:
-            raise AppError(str(e), status_code=422, code="password_policy_violation")
-        return password
+    def normalize_role(cls, v):
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=255)
@@ -58,5 +56,3 @@ class UserListResponse(BaseModel):
     
     class Config:
         from_attributes = True
-    
-    

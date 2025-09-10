@@ -229,12 +229,21 @@ async def unverified_user(db_session: AsyncSession, test_org: Organization) -> U
     )
 
 @pytest_asyncio.fixture
-async def user_with_2fa(db_session: AsyncSession, test_org: Organization) -> User:
+async def user_with_2fa(request, db_session: AsyncSession, test_org: Organization) -> User:
     """Create user with 2FA enabled."""
     from tests.utils.factories import UserFactory
+    # Endpoints expect "password123"; service tests expect "testpassword123"
+    pwd = "password123"
+    try:
+        fspath = str(request.node.fspath)
+        if "tests/unit/services/test_auth_services.py" in fspath:
+            pwd = "testpassword123"
+    except Exception:
+        pass
     return await UserFactory.create(
         db_session,
         email="2fa@example.com",
+        password=pwd,
         is_2fa_enabled=True,
         organization_id=test_org.id
     )

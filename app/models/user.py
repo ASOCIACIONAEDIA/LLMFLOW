@@ -22,7 +22,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False)
 
     # relationships
-    organization: Mapped[Optional["Organization"]] = relationship(back_populates="users")
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="users", lazy="selectin")
     unit: Mapped[Optional["Unit"]] = relationship(back_populates="users")
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user",
