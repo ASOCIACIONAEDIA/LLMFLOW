@@ -9,6 +9,8 @@ __pycache__
 .env.local
 .env.development.local
 .env.test.local
+.env.docker
+.env.example
 
 # Logs
 logs
@@ -34,3 +36,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.coveragerc
+.raise
+.deprecate

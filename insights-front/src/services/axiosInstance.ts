@@ -1,17 +1,12 @@
 import axios from 'axios';
 import router from '@/router'; // Assuming your router is here
-
-let baseURL = '/api'; // Default for relative paths if VITE_API_BASE_URL is not set
-if (import.meta.env.VITE_API_BASE_URL) {
-  // Ensure VITE_API_BASE_URL (e.g., "http://example.com") is combined correctly with "/api"
-  // .replace(/\/$/, '') removes a trailing slash from VITE_API_BASE_URL if present, to avoid double slashes.
-  baseURL = `${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/api`;
-}
-
+ 
+const baseURL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
+ 
 const apiClient = axios.create({
   baseURL: baseURL,
 });
-
+ 
 apiClient.interceptors.request.use(
   (config) => {
     const token = sessionStorage.getItem('token');
@@ -26,7 +21,7 @@ apiClient.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-
+ 
 apiClient.interceptors.response.use(
   response => response,
   async error => {
@@ -34,12 +29,12 @@ apiClient.interceptors.response.use(
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true; // Prevent infinite loops
       console.error("Axios Interceptor: Received 401 Unauthorized.");
-
+ 
       // Clear potentially invalid token and user data
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
       sessionStorage.removeItem('adminToken'); // If you use this
-
+ 
       // Redirect to login
       // Check if already on login to prevent redirect loop
       if (router.currentRoute.value.name !== 'login') { // Corrected 'Login' to 'login'
@@ -50,5 +45,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
+ 
 export default apiClient;
+ 
